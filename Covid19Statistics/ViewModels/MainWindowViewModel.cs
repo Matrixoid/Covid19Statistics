@@ -1,5 +1,8 @@
-﻿using Covid19Statistics.Models;
+﻿using Covid19Statistics.Infrastructure.Commands;
+using Covid19Statistics.Models;
 using Covid19Statistics.ViewModels.Base;
+using OxyPlot;
+using OxyPlot.Axes;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -7,7 +10,10 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
 
 namespace Covid19Statistics.ViewModels
 {
@@ -29,8 +35,68 @@ namespace Covid19Statistics.ViewModels
             {"Saint Helena,", "Saint Helena -"}
         };
 
+        private PlotModel _plotModel;
+        public PlotModel PlotModel
+        {
+            get => _plotModel;
+            set => Set(ref _plotModel, value);
+        }
+
+        public ICommand DisplayGraphCommand { get; }
+
+        private bool CanDisplayGraphCommandExecuted(object p) => SelectedPlace != null && SelectedDateSince <= SelectedDateUntil;
+
+        private void OnDisplayGraphCommandExecute(object p)
+        {
+            PlotModel = new PlotModel { Title = "Заражения"};
+            PlotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left});
+            PlotModel.Axes.Add(new DateTimeAxis { Position = AxisPosition.Bottom, StringFormat = "dd.MM.yy"});
+            var line = new OxyPlot.Series.LineSeries() {
+                Title = $"Series 1",
+                Color = OxyColors.Blue,
+                StrokeThickness = 1,
+            };
+            var dates = GetDates();
+
+            for (int i = 0; i < dates.Count(); i++)
+            {
+                if (dates[i] < SelectedDateSince) continue;
+                if (dates[i] > SelectedDateUntil) continue;
+                line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(dates[i]), (double)SelectedPlace?.Counts[i]));
+            }
+
+            PlotModel.Series.Add(line);
+            PlotModel.InvalidatePlot(true);
+        }
+
+        private Place _selectedPlace;
+
+        public Place SelectedPlace
+        {
+            get => _selectedPlace;
+            set => Set(ref _selectedPlace, value);
+        }
+
+        private DateTime _selectedDateSince = new DateTime(2020, 1, 22);
+
+        public DateTime SelectedDateSince
+        {
+            get => _selectedDateSince;
+            set => Set(ref _selectedDateSince, value);
+        }
+
+        private DateTime _selectedDateUntil = new DateTime(2023, 9, 1);
+
+        public DateTime SelectedDateUntil
+        {
+            get => _selectedDateUntil;
+            set => Set(ref _selectedDateUntil, value);
+        }
+
         public MainWindowViewModel() {
             Places = GetData();
+
+            DisplayGraphCommand = new LambdaCommand(OnDisplayGraphCommandExecute, CanDisplayGraphCommandExecuted);
         }
 
         private IEnumerable<string> GetDataLines()
