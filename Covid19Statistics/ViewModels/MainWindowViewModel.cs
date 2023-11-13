@@ -3,6 +3,7 @@ using Covid19Statistics.Models;
 using Covid19Statistics.ViewModels.Base;
 using OxyPlot;
 using OxyPlot.Axes;
+using OxyPlot.Legends;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -51,21 +52,37 @@ namespace Covid19Statistics.ViewModels
             PlotModel = new PlotModel { Title = "Заражения"};
             PlotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left});
             PlotModel.Axes.Add(new DateTimeAxis { Position = AxisPosition.Bottom, StringFormat = "dd.MM.yy"});
-            var line = new OxyPlot.Series.LineSeries() {
-                Title = $"Series 1",
+            var line1 = new OxyPlot.Series.LineSeries() {
+                Title = "Заражение по стране",
                 Color = OxyColors.Blue,
                 StrokeThickness = 1,
             };
+            var line2 = new OxyPlot.Series.LineSeries()
+            {
+                Title = "Максимальное заражение",
+                Color = OxyColors.Red,
+                StrokeThickness = 1
+            };
+
             var dates = GetDates();
 
             for (int i = 0; i < dates.Count(); i++)
             {
                 if (dates[i] < SelectedDateSince) continue;
                 if (dates[i] > SelectedDateUntil) continue;
-                line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(dates[i]), (double)SelectedPlace?.Counts[i]));
+                line1.Points.Add(new DataPoint(DateTimeAxis.ToDouble(dates[i]), (double)SelectedPlace?.Counts[i]));
+                line2.Points.Add(new DataPoint(DateTimeAxis.ToDouble(dates[i]), (double)MaxInfectionOnDay[i]));
             }
 
-            PlotModel.Series.Add(line);
+            PlotModel.Series.Add(line1);
+            PlotModel.Series.Add(line2);
+
+            PlotModel.Legends.Add(new Legend()
+            {
+                LegendTitle = "Legend",
+                LegendPosition = LegendPosition.TopLeft
+            });
+
             PlotModel.InvalidatePlot(true);
         }
 
@@ -93,10 +110,28 @@ namespace Covid19Statistics.ViewModels
             set => Set(ref _selectedDateUntil, value);
         }
 
+        private int[] _maxInfectionOnDay;
+
+        public int[] MaxInfectionOnDay
+        {
+            get => _maxInfectionOnDay;
+            set => Set(ref _maxInfectionOnDay, value);
+        }
+
         public MainWindowViewModel() {
             Places = GetData();
 
             DisplayGraphCommand = new LambdaCommand(OnDisplayGraphCommandExecute, CanDisplayGraphCommandExecuted);
+
+            int[] maxInfectionOnDay = new int[GetDates().Count()];
+            for (int i = 0; i < maxInfectionOnDay.Count(); i++)
+            {
+                for (int j = 0; j < Places.Count; j++) 
+                {
+                    maxInfectionOnDay[i] = Math.Max(maxInfectionOnDay[i], Places[j].Counts[i]);
+                }
+            }
+            MaxInfectionOnDay = maxInfectionOnDay;
         }
 
         private IEnumerable<string> GetDataLines()
